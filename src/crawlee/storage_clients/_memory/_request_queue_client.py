@@ -259,6 +259,29 @@ class MemoryRequestQueueClient(RequestQueueClient):
         )
 
     @override
+    async def reopen_request(self, unique_key: str) -> ProcessedRequest | None:
+        """Move a handled request back to pending for explicit reprocessing."""
+        request = self._handled_requests.pop(unique_key, None)
+        if request is None:
+            return None
+
+        request.handled_at = None
+        request.retry_count = 0
+        self._pending_requests[unique_key] = request
+
+        await self._update_metadata(
+            new_handled_request_count=self._metadata.handled_request_count - 1,
+            new_pending_request_count=self._metadata.pending_request_count + 1,
+            update_modified_at=True,
+        )
+
+        return ProcessedRequest(
+            unique_key=unique_key,
+            was_already_present=True,
+            was_already_handled=False,
+        )
+
+    @override
     async def reclaim_request(
         self,
         request: Request,

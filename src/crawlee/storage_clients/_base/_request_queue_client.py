@@ -118,6 +118,14 @@ class RequestQueueClient(ABC):
         """
 
     @abstractmethod
+    @abstractmethod
+    async def reopen_request(self, unique_key: str) -> ProcessedRequest | None:
+        """Move an already handled request back to pending.
+
+        Reset handled_at and retry_count without creating a duplicate request.
+        Return None if the request is missing or not handled.
+        """
+
     async def is_empty(self) -> bool:
         """Check if the request queue is empty. That means there are no requests available to fetch.
 

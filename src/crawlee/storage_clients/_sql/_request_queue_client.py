@@ -538,6 +538,67 @@ class SqlRequestQueueClient(
 
     @retry_on_error(SQLAlchemyError)
     @override
+    async def reopen_request(self, unique_key: str) -> ProcessedRequest | None:
+        """Reopen a handled request without creating a duplicate."""
+        request_id = self._get_int_id_from_unique_key(unique_key)
+
+        async with self.get_session(with_simple_commit=True) as session:
+            stmt = select(self._ITEM_TABLE).where(
+                self._ITEM_TABLE.request_queue_id == self._id,
+                self._ITEM_TABLE.request_id == request_id,
+                self._ITEM_TABLE.is_handled.is_(True),
+            )
+
+            if self._storage_client.get_dialect_name() in {'postgresql', 'mysql', 'mariadb'}:
+                stmt = stmt.with_for_update()
+
+            result = await session.execute(stmt)
+            request_db = result.scalar_one_or_none()
+            if request_db is None:
+                return None
+
+            request = Request.model_validate_json(request_db.data)
+            request.handled_at = None
+            request.retry_count = 0
+
+            state = await self._get_state(session)
+            sequence_number = state.sequence_counter
+            state.sequence_counter += 1
+
+            update_stmt = (
+                update(self._ITEM_TABLE)
+                .where(
+                    self._ITEM_TABLE.request_queue_id == self._id,
+                    self._ITEM_TABLE.request_id == request_id,
+                    self._ITEM_TABLE.is_handled.is_(True),
+                )
+                .values(
+                    is_handled=False,
+                    time_blocked_until=None,
+                    client_key=None,
+                    sequence_number=sequence_number,
+                    data=request.model_dump_json(),
+                )
+            )
+            updated = await session.execute(update_stmt)
+            if updated.rowcount != 1:
+                return None
+
+            await self._add_buffer_record(
+                session,
+                update_modified_at=True,
+                delta_handled_request_count=-1,
+                delta_pending_request_count=1,
+            )
+
+        return ProcessedRequest(
+            unique_key=unique_key,
+            was_already_present=True,
+            was_already_handled=False,
+        )
+
+    @retry_on_error(SQLAlchemyError)
+    @override
     async def reclaim_request(
         self,
         request: Request,

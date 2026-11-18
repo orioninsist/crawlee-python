@@ -313,6 +313,22 @@ class RequestQueue(Storage, RequestManager):
         """
         return await self._client.reclaim_request(request, forefront=forefront)
 
+    async def reopen_request(self, unique_key: str) -> ProcessedRequest | None:
+        """Reopen an already handled request for future processing.
+
+        This operation is explicit and does not automatically retry failed requests.
+        Only handled requests can be reopened. Reopening resets the request's
+        handled timestamp and retry count.
+
+        Args:
+            unique_key: Unique key of the handled request.
+
+        Returns:
+            Information about the operation, or None if the request is missing
+            or is not currently handled.
+        """
+        return await self._client.reopen_request(unique_key)
+
     async def is_empty(self) -> bool:
         """Check if the request queue is empty.
 

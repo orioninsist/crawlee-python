@@ -116,6 +116,7 @@ class RedisRequestQueueClient(RequestQueueClient, RedisClientMixin):
         self._fetch_script: AsyncScript | None = None
         self._reclaim_stale_script: AsyncScript | None = None
         self._add_requests_script: AsyncScript | None = None
+        self._reopen_request_script: AsyncScript | None = None
 
         self._next_reclaim_stale: datetime | None = None
 
@@ -449,6 +450,52 @@ class RedisRequestQueueClient(RequestQueueClient, RedisClientMixin):
 
     @retry_on_error(RedisError)
     @override
+    async def reopen_request(self, unique_key: str) -> ProcessedRequest | None:
+        """Atomically reopen a handled request using set-based deduplication."""
+        if self._dedup_strategy != 'default':
+            raise NotImplementedError(
+                'Reopening requests is not supported with Bloom filter deduplication.'
+            )
+
+        if self._reopen_request_script is None:
+            raise RuntimeError('Scripts not loaded. Call _ensure_scripts_loaded() before using the client.')
+
+        request_json = await await_redis_response(
+            self._redis.hget(self._data_key, unique_key)
+        )
+        if request_json is None:
+            return None
+
+        request = Request.model_validate_json(request_json)
+        request.handled_at = None
+        request.retry_count = 0
+
+        reopened = await self._reopen_request_script(
+            keys=[
+                self._handled_set_key,
+                self._pending_set_key,
+                self._queue_key,
+                self._data_key,
+                self.metadata_key,
+            ],
+            args=[
+                unique_key,
+                datetime.now(timezone.utc).isoformat(),
+                request.model_dump_json(),
+            ],
+        )
+
+        if not reopened:
+            return None
+
+        return ProcessedRequest(
+            unique_key=unique_key,
+            was_already_present=True,
+            was_already_handled=False,
+        )
+
+    @retry_on_error(RedisError)
+    @override
     async def reclaim_request(
         self,
         request: Request,
@@ -521,6 +568,7 @@ class RedisRequestQueueClient(RequestQueueClient, RedisClientMixin):
     async def _load_scripts(self) -> None:
         """Ensure Lua scripts are loaded in Redis."""
         self._fetch_script = await self._create_script('atomic_fetch_request.lua')
+        self._reopen_request_script = await self._create_script('atomic_reopen_request.lua')
         self._reclaim_stale_script = await self._create_script('reclaim_stale_requests.lua')
         if self._dedup_strategy == 'bloom':
             self._add_requests_script = await self._create_script('atomic_bloom_add_requests.lua')

@@ -1636,3 +1636,42 @@ async def test_request_with_noascii_chars(rq: RequestQueue) -> None:
     assert request is not None
     assert request.url == 'https://crawlee.dev'
     assert request.user_data == init_request.user_data
+
+
+async def test_reopen_handled_request(rq: RequestQueue) -> None:
+    """A handled request can be reopened exactly once."""
+    url = 'https://example.com/recover'
+    await rq.add_request(url)
+
+    request = await rq.fetch_next_request()
+    assert request is not None
+
+    request.retry_count = 2
+    await rq.mark_request_as_handled(request)
+
+    metadata = await rq.get_metadata()
+    assert metadata.handled_request_count == 1
+    assert metadata.pending_request_count == 0
+    assert await rq.is_finished()
+
+    result = await rq.reopen_request(request.unique_key)
+    assert result is not None
+    assert result.was_already_present
+    assert not result.was_already_handled
+
+    # Reopening twice must not create duplicate pending requests.
+    assert await rq.reopen_request(request.unique_key) is None
+
+    metadata = await rq.get_metadata()
+    assert metadata.total_request_count == 1
+    assert metadata.handled_request_count == 0
+    assert metadata.pending_request_count == 1
+
+    recovered = await rq.fetch_next_request()
+    assert recovered is not None
+    assert recovered.url == url
+    assert recovered.handled_at is None
+    assert recovered.retry_count == 0
+
+    await rq.mark_request_as_handled(recovered)
+    assert await rq.is_finished()

@@ -539,6 +539,46 @@ class FileSystemRequestQueueClient(RequestQueueClient):
             )
 
     @override
+    async def reopen_request(self, unique_key: str) -> ProcessedRequest | None:
+        """Move a previously handled request back to the pending queue."""
+        async with self._lock:
+            state = self._state.current_value
+
+            if unique_key not in state.handled_requests:
+                return None
+
+            request_path = self._get_request_path(unique_key)
+            request = await self._parse_request_file(request_path)
+            if request is None:
+                return None
+
+            request.handled_at = None
+            request.retry_count = 0
+
+            request_data = await json_dumps(request.model_dump())
+            await atomic_write(request_path, request_data)
+
+            state.handled_requests.remove(unique_key)
+            state.regular_requests[unique_key] = state.sequence_counter
+            state.sequence_counter += 1
+
+            self._request_cache_needs_refresh = True
+            self._is_empty_cache = None
+
+            await self._update_metadata(
+                update_modified_at=True,
+                update_accessed_at=True,
+                new_handled_request_count=self._metadata.handled_request_count - 1,
+                new_pending_request_count=self._metadata.pending_request_count + 1,
+            )
+
+            return ProcessedRequest(
+                unique_key=unique_key,
+                was_already_present=True,
+                was_already_handled=False,
+            )
+
+    @override
     async def reclaim_request(
         self,
         request: Request,
