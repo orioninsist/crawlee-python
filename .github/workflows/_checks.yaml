@@ -86,10 +86,14 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
 
-      - name: Install pnpm and website dependencies
-        uses: apify/actions/pnpm-install@v1.6.2
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
         with:
-          working-directory: website
+          package_json_file: website/package.json
+
+      - name: Install website dependencies
+        working-directory: website
+        run: pnpm install --frozen-lockfile
 
       - name: Lint website code
         run: pnpm lint:code
