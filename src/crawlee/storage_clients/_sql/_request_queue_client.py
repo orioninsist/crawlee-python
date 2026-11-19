@@ -581,7 +581,7 @@ class SqlRequestQueueClient(
                 )
             )
             updated = await session.execute(update_stmt)
-            if updated.rowcount != 1:
+            if getattr(updated, 'rowcount', None) != 1:
                 return None
 
             await self._add_buffer_record(

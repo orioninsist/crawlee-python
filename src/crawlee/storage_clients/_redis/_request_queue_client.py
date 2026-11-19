@@ -453,16 +453,12 @@ class RedisRequestQueueClient(RequestQueueClient, RedisClientMixin):
     async def reopen_request(self, unique_key: str) -> ProcessedRequest | None:
         """Atomically reopen a handled request using set-based deduplication."""
         if self._dedup_strategy != 'default':
-            raise NotImplementedError(
-                'Reopening requests is not supported with Bloom filter deduplication.'
-            )
+            raise NotImplementedError('Reopening requests is not supported with Bloom filter deduplication.')
 
         if self._reopen_request_script is None:
             raise RuntimeError('Scripts not loaded. Call _ensure_scripts_loaded() before using the client.')
 
-        request_json = await await_redis_response(
-            self._redis.hget(self._data_key, unique_key)
-        )
+        request_json = await await_redis_response(self._redis.hget(self._data_key, unique_key))
         if request_json is None:
             return None
 
