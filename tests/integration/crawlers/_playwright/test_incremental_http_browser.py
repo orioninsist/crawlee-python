@@ -12,7 +12,7 @@ from crawlee.crawlers import PlaywrightCrawler, PlaywrightCrawlingContext, Playw
 from crawlee.http_clients import HttpxHttpClient
 from crawlee.storage_clients import FileSystemStorageClient, MemoryStorageClient
 from crawlee.storages import KeyValueStore, RequestQueue
-from tests.unit.crawlers._playwright.test_incremental_http_e2e import freshness_server
+from tests.unit.crawlers._playwright.test_incremental_http_e2e import freshness_server  # noqa: F401, F811
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -48,7 +48,7 @@ async def test_real_browser_incremental_etag_round_trip(
         )
 
         @crawler.pre_navigation_hook
-        async def count_page(context: PlaywrightPreNavCrawlingContext) -> None:
+        async def count_page(_context: PlaywrightPreNavCrawlingContext) -> None:
             page_allocations.append(run_number)
 
         @crawler.router.default_handler
