@@ -46,6 +46,7 @@ jobs:
   beta_release:
     # Only on push, and only for "feat", "fix", "perf", "refactor" and "style" commits.
     if: >-
+      github.repository == 'apify/crawlee-python' &&
       github.event_name == 'push' && (
         startsWith(github.event.head_commit.message, 'feat') ||
         startsWith(github.event.head_commit.message, 'fix') ||
