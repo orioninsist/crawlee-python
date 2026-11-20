@@ -12,16 +12,17 @@ from crawlee.crawlers import PlaywrightCrawler, PlaywrightCrawlingContext, Playw
 from crawlee.http_clients import HttpxHttpClient
 from crawlee.storage_clients import FileSystemStorageClient, MemoryStorageClient
 from crawlee.storages import KeyValueStore, RequestQueue
-from tests.unit.crawlers._playwright.test_incremental_http_e2e import freshness_server  # noqa: F401
 
 if TYPE_CHECKING:
     from pathlib import Path
 
 
+pytest_plugins = ('tests.unit.crawlers._playwright.test_incremental_http_e2e',)
+
 @pytest.mark.asyncio
 async def test_real_browser_incremental_etag_round_trip(
     freshness_server: tuple[str, dict[str, object]],
-    tmp_path: Path,  # noqa: F811
+    tmp_path: Path,
 ) -> None:
     """The handler runs for 200, skips 304 before page creation, then runs for a new ETag."""
     url, server_state = freshness_server
