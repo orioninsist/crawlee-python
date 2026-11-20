@@ -32,6 +32,7 @@ async def test_conditional_get_persists_only_after_successful_processing() -> No
     second = await checker.check(url)
     assert not second.changed
     assert second.status_code == 304
+    assert client.send_request.await_args is not None
     assert client.send_request.await_args.kwargs['headers'] == {'If-None-Match': '"v1"'}
     assert len(records) == 1
 
@@ -47,9 +48,8 @@ async def test_last_modified_fallback_and_errors() -> None:
 
     result = await checker.check('https://example.com/')
     assert not result.changed
-    assert client.send_request.await_args.kwargs['headers'] == {
-        'If-Modified-Since': 'Wed, 21 Oct 2015 07:28:00 GMT'
-    }
+    assert client.send_request.await_args is not None
+    assert client.send_request.await_args.kwargs['headers'] == {'If-Modified-Since': 'Wed, 21 Oct 2015 07:28:00 GMT'}
 
     client.send_request.return_value = MagicMock(status_code=503, headers={})
     with pytest.raises(ValueError, match='503'):
