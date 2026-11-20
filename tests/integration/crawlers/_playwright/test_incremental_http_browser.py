@@ -19,6 +19,7 @@ if TYPE_CHECKING:
 
 pytest_plugins = ('tests.unit.crawlers._playwright.test_incremental_http_e2e',)
 
+
 @pytest.mark.asyncio
 async def test_real_browser_incremental_etag_round_trip(
     freshness_server: tuple[str, dict[str, object]],
