@@ -16,7 +16,6 @@ from crawlee._request import Request, RequestOptions, RequestState
 from crawlee._types import BasicCrawlingContext, ConcurrencySettings
 from crawlee._utils.blocked import RETRY_CSS_SELECTORS
 from crawlee._utils.docs import docs_group
-from crawlee._utils.http_freshness import HttpFreshnessChecker
 from crawlee._utils.robots import RobotsTxtFile
 from crawlee._utils.time import SharedTimeout
 from crawlee._utils.urls import is_url_absolute, to_absolute_url_iterator
@@ -37,6 +36,7 @@ from ._types import BlockRequestsFunction, GotoOptions
 from ._utils import NavigationRequestInterceptor, block_requests, infinite_scroll
 
 if TYPE_CHECKING:
+    from crawlee._utils.http_freshness import HttpFreshnessChecker
     from collections.abc import AsyncGenerator, Awaitable, Callable, Iterator, Mapping
     from pathlib import Path
 
@@ -155,6 +155,8 @@ class PlaywrightCrawler(
                 This option should not be used if `browser_pool` is provided.
             navigation_timeout: Timeout for navigation (the process between opening a Playwright page and calling
                 the request handler)
+            http_freshness_checker: Optional HTTP validator checker used to skip unchanged resources before
+                opening a browser page. Persist validators after successful request handling.
             goto_options: Additional options to pass to Playwright's `Page.goto()` method. The `timeout` option is
                 not supported, use `navigation_timeout` instead.
             kwargs: Additional keyword arguments to pass to the underlying `BasicCrawler`.
