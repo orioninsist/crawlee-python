@@ -326,7 +326,7 @@ class PlaywrightCrawler(
             ),
         )
 
-    async def _check_http_freshness(self, context: BasicCrawlingContext) -> AsyncGenerator[BasicCrawlingContext, None]:
+    async def _check_http_freshness(self, context: BasicCrawlingContext) -> AsyncGenerator[BasicCrawlingContext, Exception | None]:
         """Skip unchanged resources before allocating a browser page.
 
         Persist response validators only when downstream request handling succeeds.
