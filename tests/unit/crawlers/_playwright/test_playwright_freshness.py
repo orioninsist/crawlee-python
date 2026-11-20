@@ -4,7 +4,6 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from crawlee._types import BasicCrawlingContext
 from crawlee._utils.http_freshness import FreshnessResult
 from crawlee.crawlers import PlaywrightCrawler
 from crawlee.errors import ContextPipelineInterruptedError
@@ -16,7 +15,7 @@ async def test_unchanged_page_interrupts_before_browser_allocation() -> None:
     checker.check = AsyncMock(return_value=FreshnessResult(changed=False, status_code=304))
     checker.mark_processed = AsyncMock()
     crawler = PlaywrightCrawler(http_freshness_checker=checker)
-    context = MagicMock(spec=BasicCrawlingContext)
+    context = MagicMock()
     context.request.url = 'https://example.com/'
 
     middleware = crawler._check_http_freshness(context)
@@ -32,7 +31,7 @@ async def test_changed_page_commits_only_after_success() -> None:
     checker.check = AsyncMock(return_value=result)
     checker.mark_processed = AsyncMock()
     crawler = PlaywrightCrawler(http_freshness_checker=checker)
-    context = MagicMock(spec=BasicCrawlingContext)
+    context = MagicMock()
     context.request.url = 'https://example.com/'
 
     middleware = crawler._check_http_freshness(context)
