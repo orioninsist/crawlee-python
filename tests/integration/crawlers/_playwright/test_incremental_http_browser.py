@@ -8,7 +8,7 @@ import pytest
 
 from crawlee._utils.http_freshness import HttpFreshnessChecker
 from crawlee.configuration import Configuration
-from crawlee.crawlers import PlaywrightCrawler, PlaywrightCrawlingContext
+from crawlee.crawlers import PlaywrightCrawler, PlaywrightCrawlingContext, PlaywrightPreNavCrawlingContext
 from crawlee.http_clients import HttpxHttpClient
 from crawlee.storage_clients import FileSystemStorageClient, MemoryStorageClient
 from crawlee.storages import KeyValueStore, RequestQueue
@@ -46,7 +46,7 @@ async def test_real_browser_incremental_etag_round_trip(
         )
 
         @crawler.pre_navigation_hook
-        async def count_page(context: PlaywrightCrawlingContext) -> None:
+        async def count_page(context: PlaywrightPreNavCrawlingContext) -> None:
             page_allocations.append(run_number)
 
         @crawler.router.default_handler
@@ -62,7 +62,9 @@ async def test_real_browser_incremental_etag_round_trip(
     await crawl_once(2)
     assert handled_titles == ['"v1"']
     assert page_allocations == [1]
-    assert server_state['requests'][-1] == '"v1"'
+    requests = server_state['requests']
+    assert isinstance(requests, list)
+    assert requests[-1] == '"v1"'
 
     server_state['etag'] = '"v2"'
     await crawl_once(3)
