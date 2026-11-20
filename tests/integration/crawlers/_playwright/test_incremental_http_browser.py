@@ -36,7 +36,9 @@ async def test_real_browser_incremental_etag_round_trip(
             storage_client=storage_client,
         )
         # Each run needs a fresh request queue; otherwise handled requests are deduplicated.
-        queue = await RequestQueue.open(name=f'browser-freshness-run-{run_number}', storage_client=MemoryStorageClient())
+        queue = await RequestQueue.open(
+            name=f'browser-freshness-run-{run_number}', storage_client=MemoryStorageClient()
+        )
         crawler = PlaywrightCrawler(
             http_freshness_checker=HttpFreshnessChecker(HttpxHttpClient(), store),
             request_manager=queue,
