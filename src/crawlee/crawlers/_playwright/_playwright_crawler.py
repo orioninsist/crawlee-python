@@ -36,7 +36,6 @@ from ._types import BlockRequestsFunction, GotoOptions
 from ._utils import NavigationRequestInterceptor, block_requests, infinite_scroll
 
 if TYPE_CHECKING:
-    from crawlee._utils.http_freshness import HttpFreshnessChecker
     from collections.abc import AsyncGenerator, Awaitable, Callable, Iterator, Mapping
     from pathlib import Path
 
@@ -49,6 +48,7 @@ if TYPE_CHECKING:
         ExtractLinksFunction,
         JsonSerializable,
     )
+    from crawlee._utils.http_freshness import HttpFreshnessChecker
     from crawlee.browsers._types import BrowserType
 
 
