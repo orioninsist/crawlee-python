@@ -52,7 +52,7 @@ def freshness_server() -> Generator[tuple[str, dict[str, object]], None, None]:
             self.end_headers()
             self.wfile.write(body)
 
-        def log_message(self, _format: str, *args: object) -> None:
+        def log_message(self, format: str, *args: object) -> None:  # noqa: A002
             """Silence fixture requests."""
 
     server = ThreadingHTTPServer(('127.0.0.1', 0), Handler)
