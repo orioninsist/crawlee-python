@@ -7,7 +7,12 @@ Call `mark_processed` after the downstream handler has committed its output.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from hashlib import sha256
 from typing import TYPE_CHECKING
+
+HTTP_OK_MIN = 200
+HTTP_REDIRECT_MIN = 300
+HTTP_NOT_MODIFIED = 304
 
 if TYPE_CHECKING:
     from crawlee.http_clients._base import HttpClient
@@ -37,8 +42,6 @@ class HttpFreshnessChecker:
         self._key_prefix = key_prefix
 
     def _key(self, url: str) -> str:
-        from hashlib import sha256
-
         return self._key_prefix + sha256(url.encode('utf-8')).hexdigest()
 
     async def check(self, url: str) -> FreshnessResult:
@@ -52,11 +55,11 @@ class HttpFreshnessChecker:
 
         response = await self._http_client.send_request(url, method='GET', headers=headers)
         status = response.status_code
-        if status == 304:
+        if status == HTTP_NOT_MODIFIED:
             if not headers:
                 raise ValueError(f'Unexpected 304 without a stored validator: {url}')
             return FreshnessResult(changed=False, status_code=status)
-        if not 200 <= status < 300:
+        if not HTTP_OK_MIN <= status < HTTP_REDIRECT_MIN:
             raise ValueError(f'HTTP freshness check failed for {url}: {status}')
 
         response_headers = {str(k).lower(): str(v) for k, v in response.headers.items()}
@@ -69,7 +72,7 @@ class HttpFreshnessChecker:
 
     async def mark_processed(self, url: str, result: FreshnessResult) -> None:
         """Commit validators only after the caller successfully processes the page."""
-        if not result.changed or not 200 <= result.status_code < 300:
+        if not result.changed or not HTTP_OK_MIN <= result.status_code < HTTP_REDIRECT_MIN:
             raise ValueError('Only successfully processed 2xx responses can update validators')
         await self._store.set_value(
             self._key(url),
