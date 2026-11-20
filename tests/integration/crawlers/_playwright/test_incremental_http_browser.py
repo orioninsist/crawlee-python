@@ -20,7 +20,8 @@ if TYPE_CHECKING:
 
 @pytest.mark.asyncio
 async def test_real_browser_incremental_etag_round_trip(
-    freshness_server: tuple[str, dict[str, object]], tmp_path: Path  # noqa: F811
+    freshness_server: tuple[str, dict[str, object]],
+    tmp_path: Path,  # noqa: F811
 ) -> None:
     """The handler runs for 200, skips 304 before page creation, then runs for a new ETag."""
     url, server_state = freshness_server
