@@ -16,12 +16,13 @@ from crawlee._request import Request, RequestOptions, RequestState
 from crawlee._types import BasicCrawlingContext, ConcurrencySettings
 from crawlee._utils.blocked import RETRY_CSS_SELECTORS
 from crawlee._utils.docs import docs_group
+from crawlee._utils.http_freshness import HttpFreshnessChecker
 from crawlee._utils.robots import RobotsTxtFile
 from crawlee._utils.time import SharedTimeout
 from crawlee._utils.urls import is_url_absolute, to_absolute_url_iterator
 from crawlee.browsers import BrowserPool
 from crawlee.crawlers._basic import BasicCrawler, BasicCrawlerOptions, ContextPipeline
-from crawlee.errors import RequestThrottledError, SessionError
+from crawlee.errors import ContextPipelineInterruptedError, RequestThrottledError, SessionError
 from crawlee.fingerprint_suite import DefaultFingerprintGenerator, FingerprintGenerator, HeaderGeneratorOptions
 from crawlee.fingerprint_suite._header_generator import fingerprint_browser_type_from_playwright_browser_type
 from crawlee.http_clients import ImpitHttpClient
@@ -123,6 +124,7 @@ class PlaywrightCrawler(
         headless: bool | None = None,
         use_incognito_pages: bool | None = None,
         navigation_timeout: timedelta | None = None,
+        http_freshness_checker: HttpFreshnessChecker | None = None,
         **kwargs: Unpack[BasicCrawlerOptions[TCrawlingContext, StatisticsState]],
     ) -> None:
         """Initialize a new instance.
@@ -200,11 +202,13 @@ class PlaywrightCrawler(
                 fingerprint_generator=fingerprint_generator,
             )
 
+        self._http_freshness_checker = http_freshness_checker
         self._browser_pool = browser_pool
 
         # Compose the context pipeline with the Playwright-specific context enhancer.
         kwargs['_context_pipeline'] = (
             ContextPipeline()
+            .compose(self._check_http_freshness)
             .compose(self._manage_shared_navigation_timeout)
             .compose(self._open_page)
             .compose(self._navigate)
@@ -321,6 +325,24 @@ class PlaywrightCrawler(
                 block_requests=context.block_requests,
             ),
         )
+
+    async def _check_http_freshness(self, context: BasicCrawlingContext) -> AsyncGenerator[BasicCrawlingContext, None]:
+        """Skip unchanged resources before allocating a browser page.
+
+        Persist response validators only when downstream request handling succeeds.
+        """
+        checker = self._http_freshness_checker
+        if checker is None:
+            yield context
+            return
+
+        result = await checker.check(context.request.url)
+        if not result.changed:
+            raise ContextPipelineInterruptedError(f'Unchanged HTTP resource: {context.request.url}')
+
+        downstream_error = yield context
+        if downstream_error is None:
+            await checker.mark_processed(context.request.url, result)
 
     async def _open_page(
         self,
