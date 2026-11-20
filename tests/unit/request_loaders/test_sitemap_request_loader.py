@@ -156,3 +156,22 @@ async def test_crawler_tandem_continues_when_sitemap_is_dead(monkeypatch: pytest
     assert set(visited) == {f'{DEFAULT_URL}seeded-a', f'{DEFAULT_URL}seeded-b'}
     assert stats.requests_finished == 2
     assert stats.requests_failed == 0
+
+
+async def test_sitemap_entry_predicate_skips_before_enqueue() -> None:
+    """The native sitemap predicate receives metadata and can avoid scheduling requests."""
+    sitemap_url = f'{DEFAULT_URL}sitemap.xml'
+    client, attempts = make_status_stream_client({sitemap_url: [(200, get_basic_sitemap().encode())]})
+    seen_entries = []
+
+    def should_enqueue(entry: Any) -> bool:
+        seen_entries.append(entry)
+        return False
+
+    loader = SitemapRequestLoader([sitemap_url], http_client=client, should_enqueue_url=should_enqueue)
+
+    assert await loader.fetch_next_request() is None
+    assert attempts == [200]
+    assert len(seen_entries) == 5
+    assert {entry.loc for entry in seen_entries} == get_basic_results()
+    assert await loader.get_total_count() == 0
