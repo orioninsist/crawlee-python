@@ -33,7 +33,7 @@ def freshness_server() -> Generator[tuple[str, dict[str, object]], None, None]:
     state: dict[str, object] = {'etag': '"v1"', 'requests': []}
 
     class Handler(BaseHTTPRequestHandler):
-        def do_GET(self) -> None:  # noqa: N802
+        def do_GET(self) -> None:
             requests = state['requests']
             assert isinstance(requests, list)
             requests.append(self.headers.get('If-None-Match'))
@@ -52,7 +52,7 @@ def freshness_server() -> Generator[tuple[str, dict[str, object]], None, None]:
             self.end_headers()
             self.wfile.write(body)
 
-        def log_message(self, format: str, *args: object) -> None:
+        def log_message(self, _format: str, *args: object) -> None:
             """Silence fixture requests."""
 
     server = ThreadingHTTPServer(('127.0.0.1', 0), Handler)
@@ -130,13 +130,13 @@ async def test_real_http_validators_survive_reopened_file_store(
     retry = await retry_checker.check(url)
     assert retry.changed
     assert retry.etag == '"v2"'
-    assert state['requests'][-1] == '"v1"'
+    assert state['requests'] == [None, None, '"v1"', '"v1"', '"v1"']
 
     await updated_checker.mark_processed(url, updated)
     final_checker = await new_checker()
     final_result = await final_checker.check(url)
     assert not final_result.changed
-    assert state['requests'][-1] == '"v2"'
+    assert state['requests'] == [None, None, '"v1"', '"v1"', '"v1"', '"v2"']
 
 
 @pytest.mark.asyncio
