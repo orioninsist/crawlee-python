@@ -11,7 +11,7 @@ from crawlee._utils.http_freshness import HttpFreshnessChecker
 async def test_conditional_get_persists_only_after_successful_processing() -> None:
     records: dict[str, dict[str, str | None]] = {}
     store = MagicMock()
-    store.get_value = AsyncMock(side_effect=lambda key: records.get(key))
+    store.get_value = AsyncMock(side_effect=records.get)
 
     async def save(key: str, value: dict[str, str | None]) -> None:
         records[key] = value
